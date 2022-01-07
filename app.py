@@ -3,6 +3,7 @@ import platform
 import json
 import csv
 
+# Check System Type To Use Correct Bookmark Path
 def main():
     
     if platform.system().startswith('Linux'):
@@ -13,7 +14,9 @@ def main():
     else:
         print("system not supported")
 
-    bookmarks = []
+    bookmarks = [] # Store bookmarks already wrote into a list
+    
+    # Open Bookmark File
     if os.path.exists(bookmarks_path):
         with open(bookmarks_path, 'r', encoding='utf-8') as f:
             bookmarks_data = json.load(f)
@@ -29,7 +32,7 @@ def main():
         print('Could not trace path')
     csvParser(bookmarks)
 
-
+# Write Bookmarks To CSV file
 def csvParser(bookmarks):
     keys = ['Title', 'URL']
     with open("bookmarks.csv", "w") as file:
