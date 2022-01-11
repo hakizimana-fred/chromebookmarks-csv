@@ -35,7 +35,7 @@ def main():
 # Write Bookmarks To CSV file
 def csvParser(bookmarks):
     keys = ['Title', 'URL']
-    with open("bookmarks.csv", "w") as file:
+    with open("bookmarks.csv", "w", encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames=keys)
         writer.writeheader()
         writer.writerows(bookmarks)
