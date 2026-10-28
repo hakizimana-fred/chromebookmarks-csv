@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Browser Explorer</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #fff; --text: #1c2026; --muted: #6b7280; --line: #e3e6eb;
+  --accent: #2f6bff; --accent-soft: #e8efff; --bad: #d92d20; --warn: #b54708; --ok: #067647;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1216; --panel: #181c22; --text: #e8eaed; --muted: #9aa3af; --line: #2a303a;
+    --accent: #6c97ff; --accent-soft: #1d2a4a; --bad: #ff6b60; --warn: #f5b04c; --ok: #4ade80;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --panel: #181c22; --text: #e8eaed; --muted: #9aa3af; --line: #2a303a;
+  --accent: #6c97ff; --accent-soft: #1d2a4a; --bad: #ff6b60; --warn: #f5b04c; --ok: #4ade80;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, sans-serif; }
+header { position: sticky; top: 0; z-index: 5; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
+h1 { font-size: 16px; margin: 0 8px 0 0; }
+input, select, button { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 10px; }
+input[type=search] { flex: 1 1 260px; min-width: 0; }
+button { cursor: pointer; }
+button:hover, .chip:hover { border-color: var(--accent); }
+button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+main { display: grid; grid-template-columns: 260px 1fr; gap: 16px; padding: 16px; max-width: 1500px; margin: 0 auto; }
+aside { position: sticky; top: 64px; align-self: start; max-height: calc(100vh - 80px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 10px 8px 4px; }
+.folder { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; }
+.folder:hover { background: var(--bg); }
+.folder.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.folder span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.toolbar .grow { flex: 1; color: var(--muted); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip { padding: 3px 10px; border: 1px solid var(--line); border-radius: 99px; background: var(--panel); cursor: pointer; font-size: 12px; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+#list { display: grid; gap: 8px; }
+#list.grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.card { display: flex; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px 12px; min-width: 0; }
+.card:hover { border-color: var(--accent); }
+.avatar { flex: none; width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center;
+  color: #fff; font-weight: 700; font-size: 15px; }
+.body { min-width: 0; flex: 1; }
+.title { display: block; font-weight: 600; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.title:hover { color: var(--accent); }
+.meta { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge { font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid currentColor; margin-left: 6px; }
+.badge.dead { color: var(--bad); } .badge.dup { color: var(--warn); } .badge.ok { color: var(--ok); }
+.copy { flex: none; padding: 4px 8px; font-size: 12px; }
+.empty { text-align: center; color: var(--muted); padding: 60px 0; }
+mark { background: #ffe58f66; color: inherit; border-radius: 2px; }
+footer { text-align: center; color: var(--muted); font-size: 12px; padding: 16px; }
+@media (max-width: 800px) { main { grid-template-columns: 1fr; } aside { position: static; max-height: 220px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Explorer</h1>
+  <button id="tab-bookmarks" data-k="bookmarks">🔖 Bookmarks</button>
+  <button id="tab-history" data-k="history">🕘 History</button>
+  <input id="q" type="search" placeholder="Search title, URL or folder…  (press /)" autocomplete="off">
+  <select id="sort">
+    <option value="added-desc">Newest first</option>
+    <option value="added-asc">Oldest first</option>
+    <option value="title">Title A–Z</option>
+    <option value="domain">Domain A–Z</option>
+    <option value="visits">Most visited</option>
+  </select>
+  <select id="profile" title="Browser / profile"></select>
+  <button id="view" title="Toggle list / grid">▦ Grid</button>
+  <button id="theme" title="Toggle theme">◐</button>
+</header>
+<main>
+  <aside id="folders"></aside>
+  <section>
+    <div class="toolbar">
+      <span class="grow" id="summary"></span>
+      <button id="fdup">Duplicates</button>
+      <button id="fdead">Dead links</button>
+      <button id="export">⬇ Export view (CSV)</button>
+    </div>
+    <div class="chips" id="domains"></div>
+    <div id="list"></div>
+  </section>
+</main>
+<footer>Generated __GENERATED__ · everything stays on your machine</footer>
+<script>
+const ALL = /*__DATA__*/{};
+const $ = id => document.getElementById(id);
+const state = { kind: 'bookmarks', q: '', folder: '', domain: '', dup: false, dead: false, profile: '', sort: 'added-desc' };
+let DATA = [];
+try { Object.assign(state, JSON.parse(localStorage.getItem('bm-prefs') || '{}'), { q: '', folder: '', domain: '' }); } catch {}
+if (!(ALL[state.kind] || []).length) state.kind = (ALL.bookmarks || []).length ? 'bookmarks' : 'history';
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const isDead = b => b.Status === 'dead' || /^[45]/.test(b.Status) && b.Status !== '403' && b.Status !== '429';
+const when = b => b.Added ?? b['Last visit'] ?? '';
+const isHistory = () => state.kind === 'history';
+
+function setKind(kind) {
+  state.kind = kind;
+  DATA = ALL[kind] || [];
+  Object.assign(state, { q: '', folder: '', domain: '', profile: '', dup: false, dead: false });
+  if (!isHistory() && state.sort === 'visits') state.sort = 'added-desc';
+  $('q').value = '';
+  $('q').placeholder = isHistory() ? 'Search visited pages…  (press /)' : 'Search title, URL or folder…  (press /)';
+  $('fdup').hidden = !DATA.some(b => b.Duplicate);
+  $('fdead').hidden = !DATA.some(b => b.Status);
+  $('sort').querySelector('[value=visits]').hidden = !isHistory();
+  $('sort').options[0].textContent = isHistory() ? 'Most recent' : 'Newest first';
+  $('sort').options[1].textContent = isHistory() ? 'Least recent' : 'Oldest first';
+  $('sort').value = state.sort;
+  const profiles = [...new Set(DATA.map(b => `${b.Browser} · ${b.Profile}`))].sort();
+  $('profile').innerHTML = '<option value="">All profiles</option>' + profiles.map(p => `<option>${esc(p)}</option>`).join('');
+  $('profile').hidden = profiles.length < 2;
+  for (const k of ['bookmarks', 'history']) {
+    $('tab-' + k).classList.toggle('on', k === kind);
+    $('tab-' + k).hidden = !(ALL[k] || []).length;
+  }
+  render();
+}
+
+function highlight(text, q) {
+  const safe = esc(text);
+  if (!q) return safe;
+  const re = new RegExp('(' + q.split(/\s+/).filter(Boolean).map(w => esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+  return safe.replace(re, '<mark>$1</mark>');
+}
+
+function filtered(ignore = {}) {
+  const words = state.q.toLowerCase().split(/\s+/).filter(Boolean);
+  return DATA.filter(b => {
+    if (state.profile && `${b.Browser} · ${b.Profile}` !== state.profile) return false;
+    if (!ignore.folder && state.folder && b.Folder !== state.folder && !b.Folder.startsWith(state.folder + ' / ')) return false;
+    if (!ignore.domain && state.domain && b.Domain !== state.domain) return false;
+    if (state.dup && !b.Duplicate) return false;
+    if (state.dead && !isDead(b)) return false;
+    const hay = (b.Title + ' ' + b.URL + ' ' + b.Folder).toLowerCase();
+    return words.every(w => hay.includes(w));
+  });
+}
+
+function sorted(rows) {
+  const by = {
+    'added-desc': (a, b) => when(b).localeCompare(when(a)),
+    'added-asc': (a, b) => when(a).localeCompare(when(b)),
+    visits: (a, b) => (b.Visits || 0) - (a.Visits || 0),
+    title: (a, b) => a.Title.localeCompare(b.Title),
+    domain: (a, b) => a.Domain.localeCompare(b.Domain) || a.Title.localeCompare(b.Title),
+  }[state.sort];
+  return rows.slice().sort(by);
+}
+
+function renderFolders() {
+  const counts = new Map();
+  for (const b of filtered({ folder: true })) {
+    const parts = b.Folder.split(' / ');
+    for (let i = 1; i <= parts.length; i++) {
+      const key = parts.slice(0, i).join(' / ');
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  }
+  const total = [...counts].filter(([k]) => !k.includes(' / ')).reduce((n, [, c]) => n + c, 0);
+  let html = `<div class="folder ${state.folder ? '' : 'on'}" data-f=""><span>${isHistory() ? 'All history' : 'All bookmarks'}</span><span class="count">${total}</span></div>`;
+  for (const [key, c] of [...counts].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const depth = key.split(' / ').length - 1;
+    const name = key.split(' / ').pop();
+    html += `<div class="folder ${state.folder === key ? 'on' : ''}" data-f="${esc(key)}" style="padding-left:${8 + depth * 14}px" title="${esc(key)}"><span>${depth ? '' : isHistory() ? '🗓 ' : '📁 '}${esc(name)}</span><span class="count">${c}</span></div>`;
+  }
+  $('folders').innerHTML = `<h2>${isHistory() ? 'When' : 'Folders'}</h2>` + html;
+}
+
+function renderDomains() {
+  const counts = {};
+  for (const b of filtered({ domain: true })) counts[b.Domain] = (counts[b.Domain] || 0) + 1;
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  $('domains').innerHTML = top.map(([d, c]) =>
+    `<span class="chip ${state.domain === d ? 'on' : ''}" data-d="${esc(d)}">${esc(d)} · ${c}</span>`).join('');
+}
+
+function renderList() {
+  const rows = sorted(filtered());
+  $('summary').textContent = `${rows.length} of ${DATA.length} ${isHistory() ? 'pages' : 'bookmarks'}`;
+  if (!rows.length) { $('list').innerHTML = '<div class="empty">Nothing matches your filters.</div>'; return rows; }
+  $('list').innerHTML = rows.slice(0, 1000).map((b, i) => {
+    const badges = (b.Duplicate ? '<span class="badge dup">duplicate</span>' : '') +
+      (isDead(b) ? `<span class="badge dead">${esc(b.Status)}</span>` : '');
+    return `<div class="card">
+      <div class="avatar" style="background:hsl(${hue(b.Domain)} 55% 45%)">${esc((b.Domain[0] || '?').toUpperCase())}</div>
+      <div class="body">
+        <a class="title" href="${esc(b.URL)}" target="_blank" rel="noopener noreferrer">${highlight(b.Title, state.q)}${badges}</a>
+        <div class="meta">${highlight(b.Domain, state.q)}${isHistory() ? '' : ' · ' + esc(b.Folder)}${when(b) ? ' · ' + when(b) : ''}${isHistory() ? ' · ' + b.Visits + (b.Visits === 1 ? ' visit' : ' visits') : ''}</div>
+      </div>
+      <button class="copy" data-url="${esc(b.URL)}">Copy</button></div>`;
+  }).join('') + (rows.length > 1000 ? '<div class="empty">Showing first 1000 — narrow your search.</div>' : '');
+  return rows;
+}
+
+function render() {
+  renderFolders(); renderDomains(); renderList();
+  $('fdup').classList.toggle('on', state.dup);
+  $('fdead').classList.toggle('on', state.dead);
+  try { localStorage.setItem('bm-prefs', JSON.stringify({ kind: state.kind, sort: state.sort, grid: $('list').classList.contains('grid'), theme: document.documentElement.dataset.theme || '' })); } catch {}
+}
+
+// events
+$('q').oninput = e => { state.q = e.target.value; render(); };
+$('sort').onchange = e => { state.sort = e.target.value; render(); };
+for (const k of ['bookmarks', 'history']) $('tab-' + k).onclick = () => setKind(k);
+$('profile').onchange = e => { state.profile = e.target.value; render(); };
+$('fdup').onclick = () => { state.dup = !state.dup; render(); };
+$('fdead').onclick = () => { state.dead = !state.dead; render(); };
+$('view').onclick = () => { const g = $('list').classList.toggle('grid'); $('view').textContent = g ? '☰ List' : '▦ Grid'; render(); };
+$('theme').onclick = () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  root.dataset.theme = dark ? 'light' : 'dark'; render();
+};
+$('folders').onclick = e => { const f = e.target.closest('.folder'); if (f) { state.folder = f.dataset.f; render(); } };
+$('domains').onclick = e => { const c = e.target.closest('.chip'); if (c) { state.domain = state.domain === c.dataset.d ? '' : c.dataset.d; render(); } };
+$('list').onclick = e => {
+  const b = e.target.closest('.copy'); if (!b) return;
+  navigator.clipboard?.writeText(b.dataset.url).then(() => { b.textContent = 'Copied'; setTimeout(() => b.textContent = 'Copy', 1200); });
+};
+$('export').onclick = () => {
+  const cols = isHistory() ? ['Title', 'URL', 'Domain', 'Last visit', 'Visits', 'Browser', 'Profile'] : ['Title', 'URL', 'Folder', 'Domain', 'Added', 'Browser', 'Profile'];
+  const cell = v => '"' + String(v).replace(/"/g, '""') + '"';
+  const csv = '﻿' + [cols.join(',')].concat(sorted(filtered()).map(b => cols.map(c => cell(b[c])).join(','))).join('\r\n');
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: state.kind + '_filtered.csv' });
+  a.click(); URL.revokeObjectURL(a.href);
+};
+addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== $('q')) { e.preventDefault(); $('q').focus(); }
+  else if (e.key === 'Escape') { $('q').value = ''; Object.assign(state, { q: '', folder: '', domain: '' }); render(); }
+});
+
+// init
+try {
+  const p = JSON.parse(localStorage.getItem('bm-prefs') || '{}');
+  if (p.grid) { $('list').classList.add('grid'); $('view').textContent = '☰ List'; }
+  if (p.theme) document.documentElement.dataset.theme = p.theme;
+} catch {}
+setKind(state.kind);
+</script>
+</body>
+</html>
